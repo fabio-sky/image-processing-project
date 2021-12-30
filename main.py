@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
 
 from dataclasses import dataclass
 
@@ -15,20 +17,24 @@ class Point:
 points: list[Point] = list()
 pointsByX: list[Point] = list()
 
-leafName = 'oak_red.jpg'
+path: str = ""
 
 
 def main():
+    points.clear()
+    pointsByX.clear()
+
     imgOriginal = readImage()
-    # imgRotated = rotateImage(imgOriginal)
-    img = cleanImage(imgOriginal)
-    imgDetected = detectLeaf(img)
-    img = erodeImage(imgDetected)
-    imgD = detectEdge(img)
+    imgBlur = cleanImage(imgOriginal)
+    imgDetected = detectLeaf(imgBlur)
+    imgOpening = erodeImage(imgDetected)
+    imgEdge = detectEdge(imgOpening)
+    # contours, hierarchy = cv2.findContours(imgEdge, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    # imgContours = drawContours(contours, hierarchy, imgOriginal)
 
-    print('IMG SHAPE', imgD.shape)
+    print('IMG SHAPE', imgEdge.shape)
 
-    minMax = findMinMax(imgD)
+    minMax = findMinMax(imgEdge)
 
     # Non consideriamo i punti attaccati
     for i in range(0, len(points)):
@@ -49,26 +55,24 @@ def main():
             img = cv2.circle(imgOriginal, (p.x, p.y), 2, (255, 0, 0), -1)
 
     for p in pointsByX:
-        print("(", p.x, p.y, p.useful, ")")
+        # print("(", p.x, p.y, p.useful, ")")
         if p.useful:
             img = cv2.circle(img, (p.x, p.y), 2, (0, 0, 255), -1)
-
 
     title = 'FOGLIA'
 
     if checkLanceolata(minMax):
         title += ' LANCEOLATA '
-    if checkLobulate(imgD.shape[1]):
+    if checkLobulate(imgEdge.shape[1]):
         title += ' LOBULATA '
     if checkCuoriformi(minMax):
         title += ' CUORIFORME '
 
-    plotImage(imgOriginal, title)
+    plotImage(img, title)
 
 
 def readImage():
-    location = "./images/" + leafName
-    leaf = cv2.imread(location)
+    leaf = cv2.imread(path)
     leaf = cv2.cvtColor(leaf, cv2.COLOR_BGR2RGB)
     return leaf
 
@@ -96,14 +100,6 @@ def detectEdge(image):
     # print(img.shape)
     # print(tuple(coordinates))
     return edges
-
-
-def toHsvOpencvRange(h, s, v):
-    hOpen = (h * 179) / 360
-    sOpen = (s * 255) / 100
-    vOpen = (v * 255) / 100
-
-    return hOpen, sOpen, vOpen
 
 
 def detectLeaf(img):
@@ -135,41 +131,22 @@ def erodeImage(image):
     return cv2.erode(dilate, kernel, iterations=1)
 
 
-def plotImage(image, title):
-    plt.imshow(image)
-    plt.title(title)
-    plt.show()
+def unique_count_app(image):
+    colors, count = np.unique(image.reshape(-1, image.shape[-1]), axis=0, return_counts=True)
+    maxIndex = count.argmax()
+    ret = colors[maxIndex]
+    if ret[0] == 0 and ret[1] == 0 and ret[2] == 0:
+        print('SEEEEEE')
+        np.delete(colors, maxIndex)
+        np.delete(count, maxIndex)
+        maxIndex = count.argmax()
+        ret = colors[maxIndex]
+    print('COLOR', count, ret, maxIndex)
+    # return ret
 
 
-def checkCuoriformi(minMax):
-    result = False
-    # maxY = pointsByX[len(pointsByX) - 1].y
-    # minY = maxY - (maxY / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
-    minY = minMax[3] - (minMax[3] / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
-    print(minY, minMax[3])
-
-    counter = 0
-    innerCounter = 0
-    oldValue = 0
-    for p in points:
-        if p.y > minY and p.useful:
-            if oldValue != p.y:
-                if innerCounter >= 4:
-                    counter += 1
-                oldValue = p.y
-                innerCounter = 1
-            else:
-                innerCounter += 1
-
-    print("COUNTER CUORIFORME: ", counter)
-
-    return counter > 30
-
-
-def rotateImage(image):
-    return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
-
-
+# --------------------------------------------------------------------------------
+# UTILS FUNCTIONS
 def findMinMax(image):
     minX = image.shape[0]
     maxX = 0
@@ -192,16 +169,35 @@ def findMinMax(image):
     return [minX, maxX, minY, maxY]
 
 
-def checkLanceolata(minMax):
-    width = minMax[1] - minMax[0]
-    height = minMax[3] - minMax[2]
+def rotateImage(image):
+    return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
 
-    print("height", height, "width", width)
-    aspectRatio = width / height
-    print("ASPECT RATIO", aspectRatio)
 
-    return 0.1 <= aspectRatio <= 0.48
+def plotImage(image, title):
+    # plt.imshow(image[:, 0:int(image.shape[1] / 2)])
+    plt.imshow(image)
+    plt.title(title)
+    plt.show()
 
+
+def drawContours(contours, hierarchy, image):
+    for i in range(len(contours)):
+        color = (0, 255, 255)
+        cv2.drawContours(image, contours, i, color, 2, cv2.LINE_8, hierarchy, 0)
+
+    return image
+
+
+def toHsvOpencvRange(h, s, v):
+    hOpen = (h * 179) / 360
+    sOpen = (s * 255) / 100
+    vOpen = (v * 255) / 100
+
+    return hOpen, sOpen, vOpen
+
+
+# ------------------------------------------------------------------
+# CLASSIFICATION FUNCTIONS
 
 def checkLobulate(imageWidth):
     # image[yMin:yMax, xMin, xMax]
@@ -237,22 +233,70 @@ def checkLobulate(imageWidth):
     return counterDX > 10 or counterSX > 10
 
 
-def unique_count_app(image):
-    colors, count = np.unique(image.reshape(-1, image.shape[-1]), axis=0, return_counts=True)
-    maxIndex = count.argmax()
-    ret = colors[maxIndex]
-    if ret[0] == 0 and ret[1] == 0 and ret[2] == 0:
-        print('SEEEEEE')
-        np.delete(colors, maxIndex)
-        np.delete(count, maxIndex)
-        maxIndex = count.argmax()
-        ret = colors[maxIndex]
-    print('COLOR', count, ret, maxIndex)
-    # return ret
+def checkLanceolata(minMax):
+    width = minMax[1] - minMax[0]
+    height = minMax[3] - minMax[2]
 
+    print("height", height, "width", width)
+    aspectRatio = width / height
+    print("ASPECT RATIO", aspectRatio)
+
+    return 0.1 <= aspectRatio <= 0.48
+
+
+def checkCuoriformi(minMax):
+    result = False
+    # maxY = pointsByX[len(pointsByX) - 1].y
+    # minY = maxY - (maxY / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
+    minY = minMax[3] - (minMax[3] / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
+    print(minY, minMax[3])
+
+    counter = 0
+    innerCounter = 0
+    oldValue = 0
+    for p in points:
+        if p.y > minY and p.useful:
+            if oldValue != p.y:
+                if innerCounter >= 4:
+                    counter += 1
+                oldValue = p.y
+                innerCounter = 1
+            else:
+                innerCounter += 1
+
+    print("COUNTER CUORIFORME: ", counter)
+
+    return counter > 30
+
+
+# -------------------------------------------------------------------------------
+# GUI FUNCTIONS
+
+def filePicker():
+    print('FILE PICKER')
+    global path
+    # tk.Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
+    path = askopenfilename()  # show an "Open" dialog box and return the path to the selected file
+    main()
+
+
+def initializeGUI():
+    w = tk.Tk()
+    w.geometry("600x600")
+    w.title("Cielo Fabio - s292464")
+
+    btnOpenFile = tk.Button(text="Scegli Foglia", command=filePicker)
+    btnOpenFile.grid(row=0, column=0)
+
+    return w
+
+
+# ------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     try:
-        main()
+        # main()
+        window = initializeGUI()
+        window.mainloop()
     except KeyboardInterrupt:
         exit(0)
