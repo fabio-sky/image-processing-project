@@ -4,38 +4,80 @@ from sklearn.tree import DecisionTreeClassifier, plot_tree  # Import Decision Tr
 from sklearn.model_selection import train_test_split  # Import train_test_split function
 from sklearn import metrics  # Import scikit-learn metrics module for accuracy calculation
 
-colNames = ["name", "height", "width", "lobulata", "cuoriforme", "lanceolata"]
+
+class LeafDetails:
+    height: int
+    width: int
+    lobulata: bool
+    cuoriforme: bool
+    lanceolata: bool
+
+    def __init__(self):
+        self.height = 0
+        self.width = 0
+        self.lobulata = False
+        self.cuoriforme = False
+        self.lanceolata = False
+
+    def setHeight(self, value):
+        self.height = value
+    
+    def setWidth(self, value):
+        self.width = value
+
+    def setLobulata(self, value):
+        self.lobulata = value
+
+    def setCuoriforme(self, value):
+        self.cuoriforme = value
+
+    def setLanceolata(self, value):
+        self.lanceolata = value
+    
+
+class DecisionTree:
 
 
-def main():
-    print('MAIN')
-    leaf = pd.read_csv("./leaf_dataset.csv", header=1, names=colNames)
-    leaf.head()
-
+    colNames = ["name", "height", "width", "lobulata", "cuoriforme", "lanceolata"]
     featuresCol = ["height", "width", "lobulata", "cuoriforme", "lanceolata"]
-    X = leaf[featuresCol]
-    y = leaf.name
+    decisionTree: DecisionTreeClassifier
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=100)
+    def __init__(self):
+        self.initializeTree()
 
-    # clf = DecisionTreeClassifier(criterion="entropy")
-    print( X_test)
-    clf = DecisionTreeClassifier()
-    clf = clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
+    def initializeTree(self):
+        dataset = pd.read_csv("./leaf_dataset.csv", header=0, names=self.colNames)
+        dataset.head()
 
-    print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
+        
+        X = dataset[self.featuresCol]
+        y = dataset.name
 
-    fig = plt.figure(figsize=(25, 20))
-    _ = plot_tree(clf,
-                  feature_names=featuresCol,
-                  class_names=["Oleandro", "Olivo", "Quercia", "Magnolia", "Heuchera", "Ciclamino"],
-                  filled=True)
-    fig.savefig("decistion_tree_gini.png")
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
+
+        # clf = DecisionTreeClassifier(criterion="entropy")
+        print( X_test)
+        
+        self.decisionTree = DecisionTreeClassifier()
+        self.decisionTree = self.decisionTree.fit(X_train, y_train)
+        y_pred = self.decisionTree.predict(X_test)
+
+        print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
+
+        # fig = plt.figure(figsize=(25, 20))
+        # _ = plot_tree(self.decisionTree,
+        #             feature_names=self.featuresCol,
+        #             class_names=["Oleandro", "Olivo", "Quercia", "Magnolia", "Heuchera", "Ciclamino"],
+        #             filled=True)
+        # fig.savefig("decistion_tree_gini.png")
+
+        # self.predictLeaf(self, LeafDetails(152, 60, False, False, True))
 
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        exit(0)
+    def predictLeaf(self, data: LeafDetails):
+        print("LEAF DETAILS", data.lanceolata, data.lobulata, data.cuoriforme)
+        predictData = [[data.height, data.width, data.lobulata, data.cuoriforme, data.lanceolata]]
+        prediction = self.decisionTree.predict(predictData)
+        return prediction[0]
+
+

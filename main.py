@@ -6,6 +6,8 @@ from tkinter.filedialog import askopenfilename
 
 from dataclasses import dataclass
 
+from decisionTree import DecisionTree, LeafDetails
+
 
 @dataclass
 class Point:
@@ -14,10 +16,16 @@ class Point:
     useful: bool
 
 
+heightTxt: tk.Text
+widthTxt: tk.Text
+leafImage: tk.Label
+
 points: list[Point] = list()
 pointsByX: list[Point] = list()
 
-path: str = ""
+path: str = "./images/leaf_icon.png"
+
+leafDecision = DecisionTree()
 
 
 def main():
@@ -59,16 +67,25 @@ def main():
         if p.useful:
             img = cv2.circle(img, (p.x, p.y), 2, (0, 0, 255), -1)
 
+    leafData = LeafDetails()
     title = 'FOGLIA'
 
     if checkLanceolata(minMax):
         title += ' LANCEOLATA '
+        leafData.lanceolata = True
     if checkLobulate(imgEdge.shape[1]):
         title += ' LOBULATA '
+        leafData.lobulata = True
     if checkCuoriformi(minMax):
         title += ' CUORIFORME '
+        leafData.cuoriforme = True
 
-    plotImage(img, title)
+    leafData.height = readHeight()
+    leafData.width = readWidth()
+
+    print("CLASSIFICATION: ", title)
+    print("IDENTIFICATION: ", leafDecision.predictLeaf(leafData))
+    plotImage(img, title + " -> " + leafDecision.predictLeaf(leafData))
 
 
 def readImage():
@@ -107,7 +124,7 @@ def detectLeaf(img):
     # find the brown color
     mask_red_brown = cv2.inRange(hsv, toHsvOpencvRange(5, 23, 7), toHsvOpencvRange(60, 80, 78))
     # find the yellow and green color in the leaf
-    mask_yellow_green = cv2.inRange(hsv, toHsvOpencvRange(20, 6, 25), toHsvOpencvRange(172, 100, 100))
+    mask_yellow_green = cv2.inRange(hsv, toHsvOpencvRange(20, 4, 15), toHsvOpencvRange(172, 100, 100))
     # find any of the three colors(green or brown or yellow) in the image
     mask = cv2.bitwise_or(mask_yellow_green, mask_red_brown)
     # mask = cv2.bitwise_or(mask, mask_dark_green)
@@ -277,16 +294,55 @@ def filePicker():
     global path
     # tk.Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
     path = askopenfilename()  # show an "Open" dialog box and return the path to the selected file
-    main()
+    # main()
 
+def readHeight():
+    return heightTxt.get()
+
+def readWidth():
+    return widthTxt.get()
+
+def startFlow():
+    h = readHeight()
+    w = readWidth()
+
+    if len(h) > 0 and len(w) > 0:
+        main()
+
+    # print("WIDTH", readWidth())
+    # print("HEIGTH", readHeight())
 
 def initializeGUI():
     w = tk.Tk()
-    w.geometry("600x600")
+    w.geometry("350x150")
     w.title("Cielo Fabio - s292464")
 
+    heightLbl = tk.Label(w,text="Altezza")
+    heightLbl.grid(row=1, column=0)
+
+    global heightTxt
+    heightTxt = tk.Entry(w,width=20)
+    # heightTxt.insert(0, "Altezza")
+    heightTxt.grid(row=1, column=1)
+
+    heightLbl = tk.Label(w,text="Larghezza")
+    heightLbl.grid(row=2, column=0)
+
+    global widthTxt
+    widthTxt = tk.Entry(w,width=20)
+    # widthTxt.insert(0, "Larghezza")
+    widthTxt.grid(row=2, column=1)
+
     btnOpenFile = tk.Button(text="Scegli Foglia", command=filePicker)
-    btnOpenFile.grid(row=0, column=0)
+    btnOpenFile.grid(row=3, column=0)
+
+    btnOpenFile = tk.Button(text="Analizza Foglia", command=startFlow)
+    btnOpenFile.grid(row=4, column=0)
+
+    photo = tk.PhotoImage(file=path)
+
+    # leafImage = tk.Label(w,text="Foglia", image=photo, compound="top")
+    # leafImage.grid(row=5, column=0)
 
     return w
 
