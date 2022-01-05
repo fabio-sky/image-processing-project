@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import tkinter as tk
-from tkinter.filedialog import askopenfilename
+import tkinter.messagebox as messagebox
 
 from dataclasses import dataclass
 
@@ -16,85 +16,44 @@ class Point:
     useful: bool
 
 
-heightTxt: tk.Text
-widthTxt: tk.Text
+selectedLeaf: tk.IntVar
 leafImage: tk.Label
 
 points: list[Point] = list()
 pointsByX: list[Point] = list()
 
-path: str = "./images/leaf_icon.png"
+path: str = ""
 
 leafDecision = DecisionTree()
+leafData = LeafDetails()
 
 
 def main():
-    points.clear()
-    pointsByX.clear()
-
-    imgOriginal = readImage()
-    imgBlur = cleanImage(imgOriginal)
+    imgOriginal = readImage(path)
+    imgBlur = blurImage(imgOriginal)
     imgDetected = detectLeaf(imgBlur)
-    imgOpening = erodeImage(imgDetected)
-    imgEdge = detectEdge(imgOpening)
-    # contours, hierarchy = cv2.findContours(imgEdge, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    # imgContours = drawContours(contours, hierarchy, imgOriginal)
+    imgFilled = fillHoleImage(imgDetected)
+    imgEdge = detectEdge(imgFilled)
 
-    print('IMG SHAPE', imgEdge.shape)
+    filterUsefulPoints()
 
     minMax = findMinMax(imgEdge)
+    img = printBorder(imgFilled)
 
-    # Non consideriamo i punti attaccati
-    for i in range(0, len(points)):
-        if i < len(points) - 1:
-            if (points[i].useful and points[i + 1].useful and points[i].y == points[i + 1].y) and (
-                    points[i + 1].x - points[i].x < 2):
-                points[i].useful = False
+    classifyLeaf(minMax)
 
-    for i in range(0, len(pointsByX)):
-        if i < len(pointsByX) - 1:
-            if (pointsByX[i].useful and pointsByX[i + 1].useful and pointsByX[i].x == pointsByX[i + 1].x) and (
-                    pointsByX[i + 1].y - pointsByX[i].y < 2):
-                pointsByX[i].useful = False
+    leafPrediction = leafDecision.predictLeaf(leafData)
 
-    for p in points:
-        # print("(", p.x, p.y, ")")
-        if p.useful:
-            img = cv2.circle(imgOriginal, (p.x, p.y), 2, (255, 0, 0), -1)
-
-    for p in pointsByX:
-        # print("(", p.x, p.y, p.useful, ")")
-        if p.useful:
-            img = cv2.circle(img, (p.x, p.y), 2, (0, 0, 255), -1)
-
-    leafData = LeafDetails()
-    title = 'FOGLIA'
-
-    if checkLanceolata(minMax):
-        title += ' LANCEOLATA '
-        leafData.lanceolata = True
-    if checkLobulate(imgEdge.shape[1]):
-        title += ' LOBULATA '
-        leafData.lobulata = True
-    if checkCuoriformi(minMax):
-        title += ' CUORIFORME '
-        leafData.cuoriforme = True
-
-    leafData.height = readHeight()
-    leafData.width = readWidth()
-
-    print("CLASSIFICATION: ", title)
-    print("IDENTIFICATION: ", leafDecision.predictLeaf(leafData))
-    plotImage(img, title + " -> " + leafDecision.predictLeaf(leafData))
+    plotImage(img, leafPrediction)
 
 
-def readImage():
-    leaf = cv2.imread(path)
-    leaf = cv2.cvtColor(leaf, cv2.COLOR_BGR2RGB)
-    return leaf
+def readImage(pth):
+    img = cv2.imread(pth)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img
 
 
-def cleanImage(image):
+def blurImage(image):
     img = cv2.GaussianBlur(image, (21, 21), 0)
     return img
 
@@ -104,7 +63,6 @@ def sortPointsByX(p: Point):
 
 
 def detectEdge(image):
-    # img = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     edges = cv2.Canny(image, 150, 300)
     indices = np.where(edges != [0])
 
@@ -113,53 +71,29 @@ def detectEdge(image):
         pointsByX.append(Point(indices[1][i], indices[0][i], useful=True))
 
     pointsByX.sort(key=sortPointsByX)
-
-    # print(img.shape)
-    # print(tuple(coordinates))
     return edges
 
 
 def detectLeaf(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-    # find the brown color
-    mask_red_brown = cv2.inRange(hsv, toHsvOpencvRange(5, 23, 7), toHsvOpencvRange(60, 80, 78))
-    # find the yellow and green color in the leaf
-    mask_yellow_green = cv2.inRange(hsv, toHsvOpencvRange(20, 4, 15), toHsvOpencvRange(172, 100, 100))
-    # find any of the three colors(green or brown or yellow) in the image
+
+    mask_red_brown = cv2.inRange(hsv, toHsvOpencvRange(5, 20, 7), toHsvOpencvRange(60, 80, 78))
+    mask_yellow_green = cv2.inRange(hsv, toHsvOpencvRange(20, 4, 15), toHsvOpencvRange(172, 100, 85))
+    mask_grey = cv2.inRange(hsv, toHsvOpencvRange(0, 0, 15), toHsvOpencvRange(360, 15, 30))
+
     mask = cv2.bitwise_or(mask_yellow_green, mask_red_brown)
-    # mask = cv2.bitwise_or(mask, mask_dark_green)
-    # Bitwise-AND mask and original image
+    mask = cv2.bitwise_or(mask, mask_grey)
+
     res = cv2.bitwise_and(img, img, mask=mask)
-    # res = cv2.cvtColor(res, cv2.COLOR_HSV2RGB)
-    # imgGray = cv2.cvtColor(imgGray, cv2.COLOR_RGB2GRAY)
-    # (thresh, im_bw) = cv2.threshold(imgGray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     return res
 
 
-def erodeImage(image):
-    # return image
-    kernel = np.ones(10)
+def fillHoleImage(image):
+    kernel = np.ones(20)
     kernelSmall = np.ones(5)
-    # kernel = generateCircle(10)
-    # print(kernel)
-    # return image
-    erode = cv2.erode(image, kernelSmall, iterations=1)
-    dilate = cv2.dilate(erode, kernel, 1)
+    # erode = cv2.erode(image, kernelSmall, iterations=1)
+    dilate = cv2.dilate(image, kernel, 1)
     return cv2.erode(dilate, kernel, iterations=1)
-
-
-def unique_count_app(image):
-    colors, count = np.unique(image.reshape(-1, image.shape[-1]), axis=0, return_counts=True)
-    maxIndex = count.argmax()
-    ret = colors[maxIndex]
-    if ret[0] == 0 and ret[1] == 0 and ret[2] == 0:
-        print('SEEEEEE')
-        np.delete(colors, maxIndex)
-        np.delete(count, maxIndex)
-        maxIndex = count.argmax()
-        ret = colors[maxIndex]
-    print('COLOR', count, ret, maxIndex)
-    # return ret
 
 
 # --------------------------------------------------------------------------------
@@ -190,19 +124,21 @@ def rotateImage(image):
     return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
 
 
-def plotImage(image, title):
-    # plt.imshow(image[:, 0:int(image.shape[1] / 2)])
+def plotImage(image, leafPrediction):
+    title = 'Foglia'
+
+    if leafData.lanceolata:
+        title += ' LANCEOLATA '
+    if leafData.lobulata:
+        title += ' LOBULATA '
+    if leafData.cuoriforme:
+        title += ' CUORIFORME '
+    title += " | " + leafPrediction
     plt.imshow(image)
     plt.title(title)
+    # leafData.clearAll()
+
     plt.show()
-
-
-def drawContours(contours, hierarchy, image):
-    for i in range(len(contours)):
-        color = (0, 255, 255)
-        cv2.drawContours(image, contours, i, color, 2, cv2.LINE_8, hierarchy, 0)
-
-    return image
 
 
 def toHsvOpencvRange(h, s, v):
@@ -213,19 +149,50 @@ def toHsvOpencvRange(h, s, v):
     return hOpen, sOpen, vOpen
 
 
+def equalizeHistogram(image):
+    ycrcb = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
+    channels = cv2.split(ycrcb)
+    print("CHANNELS LENGTH", len(channels))
+    cv2.equalizeHist(channels[0], channels[0])
+    cv2.merge(channels, ycrcb)
+    img = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2RGB)
+    return img
+
+
+def printBorder(image):
+    img = image
+    for p in points:
+        img = cv2.circle(img, (p.x, p.y), 3, (255, 0, 230), -1)
+
+    return img
+
+
+def filterUsefulPoints():
+    # Non consideriamo i punti attaccati
+    for i in range(0, len(points)):
+        if i < len(points) - 1:
+            if (points[i].useful and points[i + 1].useful and points[i].y == points[i + 1].y) and (
+                    points[i + 1].x - points[i].x < 2):
+                points[i].useful = False
+
+    for i in range(0, len(pointsByX)):
+        if i < len(pointsByX) - 1:
+            if (pointsByX[i].useful and pointsByX[i + 1].useful and pointsByX[i].x == pointsByX[i + 1].x) and (
+                    pointsByX[i + 1].y - pointsByX[i].y < 2):
+                pointsByX[i].useful = False
+
+
 # ------------------------------------------------------------------
 # CLASSIFICATION FUNCTIONS
 
-def checkLobulate(imageWidth):
-    # image[yMin:yMax, xMin, xMax]
-
+def checkLobulate(leafWidth):
     counterSX = 0
     innerCounter = 0
     oldValue = 0
     for p in pointsByX:
-        if p.x < int(imageWidth / 2) and p.useful:  # consideriamo la metà SX
+        if p.x < int(leafWidth / 2) and p.useful:  # consideriamo la metà SX
             if oldValue != p.x:
-                if innerCounter >= 6:
+                if innerCounter >= 4:
                     counterSX += 1
                 oldValue = p.x
                 innerCounter = 1
@@ -236,18 +203,18 @@ def checkLobulate(imageWidth):
     innerCounter = 0
     oldValue = 0
     for p in pointsByX:
-        if p.x > int(imageWidth / 2) and p.useful:  # consideriamo la metà DX
+        if p.x > int(leafWidth / 2) and p.useful:  # consideriamo la metà DX
             if oldValue != p.x:
-                if innerCounter >= 6:
+                if innerCounter >= 4:
                     counterDX += 1
                 oldValue = p.x
                 innerCounter = 1
             else:
                 innerCounter += 1
 
-    print("COUNTER: ", counterSX, counterDX)
-
-    return counterDX > 10 or counterSX > 10
+    sogliaMinima = int(leafWidth * 10 / 250)
+    print("COUNTER LOBULATA: ", counterSX, counterDX, "SOGLIA MINIMA: ", sogliaMinima)
+    return counterDX >= sogliaMinima and counterSX >= sogliaMinima
 
 
 def checkLanceolata(minMax):
@@ -281,68 +248,90 @@ def checkCuoriformi(minMax):
             else:
                 innerCounter += 1
 
-    print("COUNTER CUORIFORME: ", counter)
+    leafWidth = minMax[1] - minMax[0]
+    sogliaMinima = int(leafWidth * 50 / 450)
+    print("COUNTER CUORIFORME: ", counter, "SOGLIA MINIMA: ", sogliaMinima)
 
-    return counter > 30
+    return counter > sogliaMinima
+
+
+def classifyLeaf(minMax):
+    if checkLanceolata(minMax):
+        leafData.lanceolata = True
+    if checkLobulate(minMax[1] - minMax[0]):
+        leafData.lobulata = True
+    if checkCuoriformi(minMax):
+        leafData.cuoriforme = True
 
 
 # -------------------------------------------------------------------------------
 # GUI FUNCTIONS
 
-def filePicker():
-    print('FILE PICKER')
+# def filePicker():
+#     global path
+#     path = askopenfilename()
+
+
+def selectLeaf():
+    data = [[142, 21, "oleandro_2.jpg"], [70, 15, "olivo.jpg"], [176, 68, "magnolia_3.jpeg"],
+            [55, 57, "heuchera_2.jpeg"], [95, 51, "quercia_3.jpeg"], [101, 62, "quercia_4.jpg"], [40, 40, "ciclamino.jpeg"], ]
+
+    print("SELECTED LEAF", selectedLeaf.get())
+    sel = selectedLeaf.get()
+
+    leafData.clearAll()
+
+    leafData.height = data[sel - 1][0]
+    leafData.width = data[sel - 1][1]
     global path
-    # tk.Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
-    path = askopenfilename()  # show an "Open" dialog box and return the path to the selected file
-    # main()
+    path = "./images/" + data[sel - 1][2]
 
-def readHeight():
-    return heightTxt.get()
-
-def readWidth():
-    return widthTxt.get()
 
 def startFlow():
-    h = readHeight()
-    w = readWidth()
-
-    if len(h) > 0 and len(w) > 0:
+    if selectedLeaf.get() > 0:
+        points.clear()
+        pointsByX.clear()
+        print("START", selectedLeaf.get(), leafData.height, leafData.width, path)
         main()
+    else:
+        messagebox.showwarning("Attenzione", "Selezionare una foglia da testare")
 
-    # print("WIDTH", readWidth())
-    # print("HEIGTH", readHeight())
+
+def showDecisionTree():
+    decisionImg = readImage("./decision_tree.png")
+    plt.imshow(decisionImg)
+    plt.title("Decision Tree")
+    plt.axis('off')
+    plt.show()
+
 
 def initializeGUI():
     w = tk.Tk()
-    w.geometry("350x150")
+    w.geometry("250x280")
     w.title("Cielo Fabio - s292464")
 
-    heightLbl = tk.Label(w,text="Altezza")
-    heightLbl.grid(row=1, column=0)
+    global selectedLeaf
+    selectedLeaf = tk.IntVar()
 
-    global heightTxt
-    heightTxt = tk.Entry(w,width=20)
-    # heightTxt.insert(0, "Altezza")
-    heightTxt.grid(row=1, column=1)
+    tk.Label(w, text="Scegli una foglia da testare", height=2).pack(anchor=tk.W)
 
-    heightLbl = tk.Label(w,text="Larghezza")
-    heightLbl.grid(row=2, column=0)
+    tk.Radiobutton(w, text="Oleandro (142x21)", value=1, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    global widthTxt
-    widthTxt = tk.Entry(w,width=20)
-    # widthTxt.insert(0, "Larghezza")
-    widthTxt.grid(row=2, column=1)
+    tk.Radiobutton(w, text="Olivo (70x15)", value=2, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    btnOpenFile = tk.Button(text="Scegli Foglia", command=filePicker)
-    btnOpenFile.grid(row=3, column=0)
+    tk.Radiobutton(w, text="Magnolia (176x68)", value=3, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    btnOpenFile = tk.Button(text="Analizza Foglia", command=startFlow)
-    btnOpenFile.grid(row=4, column=0)
+    tk.Radiobutton(w, text="Heuchera (55x57)", value=4, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    photo = tk.PhotoImage(file=path)
+    tk.Radiobutton(w, text="Quercia Marrone (31x51)", value=5, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    # leafImage = tk.Label(w,text="Foglia", image=photo, compound="top")
-    # leafImage.grid(row=5, column=0)
+    tk.Radiobutton(w, text="Quercia Verde (101x62)", value=6, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+
+    tk.Radiobutton(w, text="Ciclamino (40x40)", value=7, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+
+    tk.Button(text="Analizza Foglia", command=startFlow, padx=5, pady=5).pack(anchor=tk.W)
+
+    tk.Button(text="Visualizza Decision Tree", command=showDecisionTree).pack(anchor=tk.W)
 
     return w
 
@@ -351,7 +340,6 @@ def initializeGUI():
 
 if __name__ == "__main__":
     try:
-        # main()
         window = initializeGUI()
         window.mainloop()
     except KeyboardInterrupt:

@@ -19,27 +19,33 @@ class LeafDetails:
         self.cuoriforme = False
         self.lanceolata = False
 
-    def setHeight(self, value):
-        self.height = value
-    
-    def setWidth(self, value):
-        self.width = value
+    # def setHeight(self, value):
+    #     self.height = value
+    #
+    # def setWidth(self, value):
+    #     self.width = value
+    #
+    # def setLobulata(self, value):
+    #     self.lobulata = value
+    #
+    # def setCuoriforme(self, value):
+    #     self.cuoriforme = value
+    #
+    # def setLanceolata(self, value):
+    #     self.lanceolata = value
 
-    def setLobulata(self, value):
-        self.lobulata = value
+    def clearAll(self):
+        self.height = 0
+        self.width  = 0
+        self.lobulata = False
+        self.lanceolata = False
+        self.cuoriforme = False
 
-    def setCuoriforme(self, value):
-        self.cuoriforme = value
-
-    def setLanceolata(self, value):
-        self.lanceolata = value
-    
 
 class DecisionTree:
-
-
     colNames = ["name", "height", "width", "lobulata", "cuoriforme", "lanceolata"]
     featuresCol = ["height", "width", "lobulata", "cuoriforme", "lanceolata"]
+    classNames = ["Oleandro", "Olivo", "Quercia", "Magnolia", "Heuchera", "Ciclamino"]
     decisionTree: DecisionTreeClassifier
 
     def __init__(self):
@@ -49,30 +55,17 @@ class DecisionTree:
         dataset = pd.read_csv("./leaf_dataset.csv", header=0, names=self.colNames)
         dataset.head()
 
-        
         X = dataset[self.featuresCol]
         y = dataset.name
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
 
-        # clf = DecisionTreeClassifier(criterion="entropy")
-        print( X_test)
-        
         self.decisionTree = DecisionTreeClassifier()
         self.decisionTree = self.decisionTree.fit(X_train, y_train)
         y_pred = self.decisionTree.predict(X_test)
 
+        # self.printDecisionTree()
         print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
-
-        # fig = plt.figure(figsize=(25, 20))
-        # _ = plot_tree(self.decisionTree,
-        #             feature_names=self.featuresCol,
-        #             class_names=["Oleandro", "Olivo", "Quercia", "Magnolia", "Heuchera", "Ciclamino"],
-        #             filled=True)
-        # fig.savefig("decistion_tree_gini.png")
-
-        # self.predictLeaf(self, LeafDetails(152, 60, False, False, True))
-
 
     def predictLeaf(self, data: LeafDetails):
         print("LEAF DETAILS", data.lanceolata, data.lobulata, data.cuoriforme)
@@ -80,4 +73,10 @@ class DecisionTree:
         prediction = self.decisionTree.predict(predictData)
         return prediction[0]
 
-
+    def printDecisionTree(self):
+        fig = plt.figure(figsize=(25, 20))
+        _ = plot_tree(self.decisionTree,
+                      feature_names=self.featuresCol,
+                      class_names=self.classNames,
+                      filled=True)
+        fig.savefig("decision_tree.png")
