@@ -19,8 +19,8 @@ class Point:
 selectedLeaf: tk.IntVar
 leafImage: tk.Label
 
-points: list[Point] = list()
-pointsByX: list[Point] = list()
+pointsY: list[Point] = list()
+pointsX: list[Point] = list()
 
 path: str = ""
 
@@ -67,22 +67,22 @@ def detectEdge(image):
     indices = np.where(edges != [0])
 
     for i in range(0, len(indices[0])):
-        points.append(Point(indices[1][i], indices[0][i], useful=True))
-        pointsByX.append(Point(indices[1][i], indices[0][i], useful=True))
+        pointsY.append(Point(indices[1][i], indices[0][i], useful=True))
+        pointsX.append(Point(indices[1][i], indices[0][i], useful=True))
 
-    pointsByX.sort(key=sortPointsByX)
+    pointsX.sort(key=sortPointsByX)
     return edges
 
 
 def detectLeaf(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
 
-    mask_red_brown = cv2.inRange(hsv, toHsvOpencvRange(5, 20, 7), toHsvOpencvRange(60, 80, 78))
-    mask_yellow_green = cv2.inRange(hsv, toHsvOpencvRange(20, 4, 15), toHsvOpencvRange(172, 100, 85))
-    mask_grey = cv2.inRange(hsv, toHsvOpencvRange(0, 0, 15), toHsvOpencvRange(360, 15, 30))
+    maskRedBrown = cv2.inRange(hsv, toHsvOpencvRange(5, 20, 7), toHsvOpencvRange(60, 80, 78))
+    maskYellowGreen = cv2.inRange(hsv, toHsvOpencvRange(20, 4, 15), toHsvOpencvRange(172, 100, 85))
+    maskGrey = cv2.inRange(hsv, toHsvOpencvRange(0, 0, 15), toHsvOpencvRange(360, 15, 30))
 
-    mask = cv2.bitwise_or(mask_yellow_green, mask_red_brown)
-    mask = cv2.bitwise_or(mask, mask_grey)
+    mask = cv2.bitwise_or(maskYellowGreen, maskRedBrown)
+    mask = cv2.bitwise_or(mask, maskGrey)
 
     res = cv2.bitwise_and(img, img, mask=mask)
     return res
@@ -90,8 +90,6 @@ def detectLeaf(img):
 
 def fillHoleImage(image):
     kernel = np.ones(20)
-    kernelSmall = np.ones(5)
-    # erode = cv2.erode(image, kernelSmall, iterations=1)
     dilate = cv2.dilate(image, kernel, 1)
     return cv2.erode(dilate, kernel, iterations=1)
 
@@ -104,7 +102,7 @@ def findMinMax(image):
     minY = image.shape[1]
     maxY = 0
 
-    for p in points:
+    for p in pointsY:
         if p.y > maxY:
             maxY = p.y
 
@@ -161,25 +159,25 @@ def equalizeHistogram(image):
 
 def printBorder(image):
     img = image
-    for p in points:
-        img = cv2.circle(img, (p.x, p.y), 3, (255, 0, 230), -1)
+    for p in pointsX:
+        img = cv2.circle(img, (p.x, p.y), 3, (255, 0, 255), -1)
 
     return img
 
 
 def filterUsefulPoints():
     # Non consideriamo i punti attaccati
-    for i in range(0, len(points)):
-        if i < len(points) - 1:
-            if (points[i].useful and points[i + 1].useful and points[i].y == points[i + 1].y) and (
-                    points[i + 1].x - points[i].x < 2):
-                points[i].useful = False
+    for i in range(0, len(pointsY)):
+        if i < len(pointsY) - 1:
+            if (pointsY[i].useful and pointsY[i + 1].useful and pointsY[i].y == pointsY[i + 1].y) and (
+                    pointsY[i + 1].x - pointsY[i].x < 2):
+                pointsY[i].useful = False
 
-    for i in range(0, len(pointsByX)):
-        if i < len(pointsByX) - 1:
-            if (pointsByX[i].useful and pointsByX[i + 1].useful and pointsByX[i].x == pointsByX[i + 1].x) and (
-                    pointsByX[i + 1].y - pointsByX[i].y < 2):
-                pointsByX[i].useful = False
+    for i in range(0, len(pointsX)):
+        if i < len(pointsX) - 1:
+            if (pointsX[i].useful and pointsX[i + 1].useful and pointsX[i].x == pointsX[i + 1].x) and (
+                    pointsX[i + 1].y - pointsX[i].y < 2):
+                pointsX[i].useful = False
 
 
 # ------------------------------------------------------------------
@@ -189,7 +187,7 @@ def checkLobulate(leafWidth):
     counterSX = 0
     innerCounter = 0
     oldValue = 0
-    for p in pointsByX:
+    for p in pointsX:
         if p.x < int(leafWidth / 2) and p.useful:  # consideriamo la metà SX
             if oldValue != p.x:
                 if innerCounter >= 4:
@@ -202,7 +200,7 @@ def checkLobulate(leafWidth):
     counterDX = 0
     innerCounter = 0
     oldValue = 0
-    for p in pointsByX:
+    for p in pointsX:
         if p.x > int(leafWidth / 2) and p.useful:  # consideriamo la metà DX
             if oldValue != p.x:
                 if innerCounter >= 4:
@@ -229,16 +227,14 @@ def checkLanceolata(minMax):
 
 
 def checkCuoriformi(minMax):
-    result = False
-    # maxY = pointsByX[len(pointsByX) - 1].y
-    # minY = maxY - (maxY / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
+    
     minY = minMax[3] - (minMax[3] / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
     print(minY, minMax[3])
 
     counter = 0
     innerCounter = 0
     oldValue = 0
-    for p in points:
+    for p in pointsY:
         if p.y > minY and p.useful:
             if oldValue != p.y:
                 if innerCounter >= 4:
@@ -274,7 +270,7 @@ def classifyLeaf(minMax):
 
 def selectLeaf():
     data = [[142, 21, "oleandro_2.jpg"], [70, 15, "olivo.jpg"], [176, 68, "magnolia_3.jpeg"],
-            [55, 57, "heuchera_2.jpeg"], [95, 51, "quercia_3.jpeg"], [101, 62, "quercia_4.jpg"], [40, 40, "ciclamino.jpeg"], ]
+            [55, 57, "heuchera.jpeg"], [95, 51, "quercia_3.jpeg"], [101, 62, "quercia_4.jpg"], [40, 40, "ciclamino.jpeg"], ]
 
     print("SELECTED LEAF", selectedLeaf.get())
     sel = selectedLeaf.get()
@@ -289,8 +285,8 @@ def selectLeaf():
 
 def startFlow():
     if selectedLeaf.get() > 0:
-        points.clear()
-        pointsByX.clear()
+        pointsY.clear()
+        pointsX.clear()
         print("START", selectedLeaf.get(), leafData.height, leafData.width, path)
         main()
     else:

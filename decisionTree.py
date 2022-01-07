@@ -52,15 +52,15 @@ class DecisionTree:
         self.initializeTree()
 
     def initializeTree(self):
-        dataset = pd.read_csv("./leaf_dataset.csv", header=0, names=self.colNames)
+        dataset = pd.read_csv("./leaf_dataset_2.csv", header=0, names=self.colNames)
         dataset.head()
 
         X = dataset[self.featuresCol]
         y = dataset.name
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=100)
 
-        self.decisionTree = DecisionTreeClassifier()
+        self.decisionTree = DecisionTreeClassifier(criterion="entropy")
         self.decisionTree = self.decisionTree.fit(X_train, y_train)
         y_pred = self.decisionTree.predict(X_test)
 
@@ -79,4 +79,4 @@ class DecisionTree:
                       feature_names=self.featuresCol,
                       class_names=self.classNames,
                       filled=True)
-        fig.savefig("decision_tree.png")
+        fig.savefig("decision_tree_2.png")
