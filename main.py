@@ -16,6 +16,8 @@ class Point:
     useful: bool
 
 
+# GLOBAL VARIABLES
+
 selectedLeaf: tk.IntVar
 leafImage: tk.Label
 
@@ -58,11 +60,11 @@ def blurImage(image):
     return img
 
 
-def sortPointsByX(p: Point):
-    return p.x
-
-
 def detectEdge(image):
+
+    def sortPointsByX(p: Point):
+        return p.x
+
     edges = cv2.Canny(image, 150, 300)
     indices = np.where(edges != [0])
 
@@ -118,10 +120,6 @@ def findMinMax(image):
     return [minX, maxX, minY, maxY]
 
 
-def rotateImage(image):
-    return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
-
-
 def plotImage(image, leafPrediction):
     title = 'Foglia'
 
@@ -132,9 +130,10 @@ def plotImage(image, leafPrediction):
     if leafData.cuoriforme:
         title += ' CUORIFORME '
     title += " | " + leafPrediction
+
+    plt.figure(num="Risultato")
     plt.imshow(image)
     plt.title(title)
-    # leafData.clearAll()
 
     plt.show()
 
@@ -145,16 +144,6 @@ def toHsvOpencvRange(h, s, v):
     vOpen = (v * 255) / 100
 
     return hOpen, sOpen, vOpen
-
-
-def equalizeHistogram(image):
-    ycrcb = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
-    channels = cv2.split(ycrcb)
-    print("CHANNELS LENGTH", len(channels))
-    cv2.equalizeHist(channels[0], channels[0])
-    cv2.merge(channels, ycrcb)
-    img = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2RGB)
-    return img
 
 
 def printBorder(image):
@@ -211,7 +200,6 @@ def checkLobulate(leafWidth):
                 innerCounter += 1
 
     sogliaMinima = int(leafWidth * 10 / 250)
-    print("COUNTER LOBULATA: ", counterSX, counterDX, "SOGLIA MINIMA: ", sogliaMinima)
     return counterDX >= sogliaMinima and counterSX >= sogliaMinima
 
 
@@ -219,9 +207,7 @@ def checkLanceolata(minMax):
     width = minMax[1] - minMax[0]
     height = minMax[3] - minMax[2]
 
-    print("height", height, "width", width)
     aspectRatio = width / height
-    print("ASPECT RATIO", aspectRatio)
 
     return 0.1 <= aspectRatio <= 0.48
 
@@ -229,7 +215,6 @@ def checkLanceolata(minMax):
 def checkCuoriformi(minMax):
     
     minY = minMax[3] - (minMax[3] / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
-    print(minY, minMax[3])
 
     counter = 0
     innerCounter = 0
@@ -246,7 +231,6 @@ def checkCuoriformi(minMax):
 
     leafWidth = minMax[1] - minMax[0]
     sogliaMinima = int(leafWidth * 50 / 450)
-    print("COUNTER CUORIFORME: ", counter, "SOGLIA MINIMA: ", sogliaMinima)
 
     return counter > sogliaMinima
 
@@ -263,16 +247,11 @@ def classifyLeaf(minMax):
 # -------------------------------------------------------------------------------
 # GUI FUNCTIONS
 
-# def filePicker():
-#     global path
-#     path = askopenfilename()
-
 
 def selectLeaf():
     data = [[142, 21, "oleandro_2.jpg"], [70, 15, "olivo.jpg"], [176, 68, "magnolia_3.jpeg"],
-            [55, 57, "heuchera.jpeg"], [95, 51, "quercia_3.jpeg"], [101, 62, "quercia_4.jpg"], [40, 40, "ciclamino.jpeg"], ]
+            [55, 57, "heuchera_2.jpg"], [95, 51, "quercia_3.jpeg"], [101, 62, "quercia_4.jpg"], [40, 40, "ciclamino.jpeg"], ]
 
-    print("SELECTED LEAF", selectedLeaf.get())
     sel = selectedLeaf.get()
 
     leafData.clearAll()
@@ -287,7 +266,6 @@ def startFlow():
     if selectedLeaf.get() > 0:
         pointsY.clear()
         pointsX.clear()
-        print("START", selectedLeaf.get(), leafData.height, leafData.width, path)
         main()
     else:
         messagebox.showwarning("Attenzione", "Selezionare una foglia da testare")
@@ -295,6 +273,7 @@ def startFlow():
 
 def showDecisionTree():
     decisionImg = readImage("./decision_tree.png")
+    plt.figure(num="Decision Tree")
     plt.imshow(decisionImg)
     plt.title("Decision Tree")
     plt.axis('off')
@@ -303,31 +282,32 @@ def showDecisionTree():
 
 def initializeGUI():
     w = tk.Tk()
-    w.geometry("250x280")
+    w.geometry("250x310")
     w.title("Cielo Fabio - s292464")
+    w.resizable(False, False)
 
     global selectedLeaf
     selectedLeaf = tk.IntVar()
 
-    tk.Label(w, text="Scegli una foglia da testare", height=2).pack(anchor=tk.W)
+    tk.Label(w, text="Scegli una foglia da testare", height=2).pack(anchor=tk.CENTER)
 
-    tk.Radiobutton(w, text="Oleandro (142x21)", value=1, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Oleandro (142x21)", pady=4, value=1, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    tk.Radiobutton(w, text="Olivo (70x15)", value=2, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Olivo (70x15)", pady=4, value=2, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    tk.Radiobutton(w, text="Magnolia (176x68)", value=3, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Magnolia (176x68)", pady=4, value=3, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    tk.Radiobutton(w, text="Heuchera (55x57)", value=4, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Heuchera (55x57)", pady=4, value=4, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    tk.Radiobutton(w, text="Quercia Marrone (31x51)", value=5, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Quercia Marrone (31x51)", pady=4, value=5, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    tk.Radiobutton(w, text="Quercia Verde (101x62)", value=6, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Quercia Verde (101x62)", pady=4, value=6, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    tk.Radiobutton(w, text="Ciclamino (40x40)", value=7, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Ciclamino (40x40)", pady=4, value=7, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
 
-    tk.Button(text="Analizza Foglia", command=startFlow, padx=5, pady=5).pack(anchor=tk.W)
+    tk.Button(text="Analizza Foglia", command=startFlow).pack(anchor=tk.CENTER)
 
-    tk.Button(text="Visualizza Decision Tree", command=showDecisionTree).pack(anchor=tk.W)
+    tk.Button(text="Visualizza Decision Tree", command=showDecisionTree).pack(anchor=tk.CENTER)
 
     return w
 

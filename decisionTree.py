@@ -52,7 +52,7 @@ class DecisionTree:
         self.initializeTree()
 
     def initializeTree(self):
-        dataset = pd.read_csv("./leaf_dataset_2.csv", header=0, names=self.colNames)
+        dataset = pd.read_csv("./leaf_dataset.csv", header=0, names=self.colNames)
         dataset.head()
 
         X = dataset[self.featuresCol]
@@ -68,7 +68,6 @@ class DecisionTree:
         print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
 
     def predictLeaf(self, data: LeafDetails):
-        print("LEAF DETAILS", data.lanceolata, data.lobulata, data.cuoriforme)
         predictData = [[data.height, data.width, data.lobulata, data.cuoriforme, data.lanceolata]]
         prediction = self.decisionTree.predict(predictData)
         return prediction[0]
