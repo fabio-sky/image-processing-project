@@ -3,9 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tkinter as tk
 import tkinter.messagebox as messagebox
-
 from dataclasses import dataclass
-
 from decisionTree import DecisionTree, LeafDetails
 
 
@@ -16,6 +14,7 @@ class Point:
     useful: bool
 
 
+# ---------------------------------------
 # GLOBAL VARIABLES
 
 selectedLeaf: tk.IntVar
@@ -29,6 +28,8 @@ path: str = ""
 leafDecision = DecisionTree()
 leafData = LeafDetails()
 
+
+# ------------------------------------------------------
 
 def main():
     imgOriginal = readImage(path)
@@ -61,7 +62,6 @@ def blurImage(image):
 
 
 def detectEdge(image):
-
     def sortPointsByX(p: Point):
         return p.x
 
@@ -98,6 +98,8 @@ def fillHoleImage(image):
 
 # --------------------------------------------------------------------------------
 # UTILS FUNCTIONS
+
+# Trova i punti agli estremi della foglia
 def findMinMax(image):
     minX = image.shape[0]
     maxX = 0
@@ -213,8 +215,7 @@ def checkLanceolata(minMax):
 
 
 def checkCuoriformi(minMax):
-    
-    minY = minMax[3] - (minMax[3] / 4)  # CONSIDERIAMO SOLO L'ULTIMO QUARTO DI FOGLIA
+    minY = minMax[3] - (minMax[3] / 4)  # Consideriamo ultimo quarto di foglia
 
     counter = 0
     innerCounter = 0
@@ -250,7 +251,8 @@ def classifyLeaf(minMax):
 
 def selectLeaf():
     data = [[142, 21, "oleandro_2.jpg"], [70, 15, "olivo.jpg"], [176, 68, "magnolia_3.jpeg"],
-            [55, 57, "heuchera_2.jpg"], [95, 51, "quercia_3.jpeg"], [101, 62, "quercia_4.jpg"], [40, 40, "ciclamino.jpeg"], ]
+            [55, 57, "heuchera_2.jpg"], [95, 51, "quercia_3.jpeg"], [101, 62, "quercia_4.jpg"],
+            [40, 40, "ciclamino.jpeg"], ]
 
     sel = selectedLeaf.get()
 
@@ -291,19 +293,26 @@ def initializeGUI():
 
     tk.Label(w, text="Scegli una foglia da testare", height=2).pack(anchor=tk.CENTER)
 
-    tk.Radiobutton(w, text="Oleandro (142x21)", pady=4, value=1, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Oleandro (142x21)", pady=4, value=1, variable=selectedLeaf, command=selectLeaf).pack(
+        anchor=tk.W)
 
-    tk.Radiobutton(w, text="Olivo (70x15)", pady=4, value=2, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Olivo (70x15)", pady=4, value=2, variable=selectedLeaf, command=selectLeaf).pack(
+        anchor=tk.W)
 
-    tk.Radiobutton(w, text="Magnolia (176x68)", pady=4, value=3, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Magnolia (176x68)", pady=4, value=3, variable=selectedLeaf, command=selectLeaf).pack(
+        anchor=tk.W)
 
-    tk.Radiobutton(w, text="Heuchera (55x57)", pady=4, value=4, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Heuchera (55x57)", pady=4, value=4, variable=selectedLeaf, command=selectLeaf).pack(
+        anchor=tk.W)
 
-    tk.Radiobutton(w, text="Quercia Marrone (31x51)", pady=4, value=5, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Quercia Marrone (31x51)", pady=4, value=5, variable=selectedLeaf, command=selectLeaf).pack(
+        anchor=tk.W)
 
-    tk.Radiobutton(w, text="Quercia Verde (101x62)", pady=4, value=6, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Quercia Verde (101x62)", pady=4, value=6, variable=selectedLeaf, command=selectLeaf).pack(
+        anchor=tk.W)
 
-    tk.Radiobutton(w, text="Ciclamino (40x40)", pady=4, value=7, variable=selectedLeaf, command=selectLeaf).pack(anchor=tk.W)
+    tk.Radiobutton(w, text="Ciclamino (40x40)", pady=4, value=7, variable=selectedLeaf, command=selectLeaf).pack(
+        anchor=tk.W)
 
     tk.Button(text="Analizza Foglia", command=startFlow).pack(anchor=tk.CENTER)
 

@@ -1,8 +1,7 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.tree import DecisionTreeClassifier, plot_tree  # Import Decision Tree Classifier
-from sklearn.model_selection import train_test_split  # Import train_test_split function
-from sklearn import metrics  # Import scikit-learn metrics module for accuracy calculation
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
 
 
 class LeafDetails:
@@ -19,24 +18,9 @@ class LeafDetails:
         self.cuoriforme = False
         self.lanceolata = False
 
-    # def setHeight(self, value):
-    #     self.height = value
-    #
-    # def setWidth(self, value):
-    #     self.width = value
-    #
-    # def setLobulata(self, value):
-    #     self.lobulata = value
-    #
-    # def setCuoriforme(self, value):
-    #     self.cuoriforme = value
-    #
-    # def setLanceolata(self, value):
-    #     self.lanceolata = value
-
     def clearAll(self):
         self.height = 0
-        self.width  = 0
+        self.width = 0
         self.lobulata = False
         self.lanceolata = False
         self.cuoriforme = False
@@ -58,24 +42,15 @@ class DecisionTree:
         X = dataset[self.featuresCol]
         y = dataset.name
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=100)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=50)
 
         self.decisionTree = DecisionTreeClassifier(criterion="entropy")
-        self.decisionTree = self.decisionTree.fit(X_train, y_train)
-        y_pred = self.decisionTree.predict(X_test)
+        self.decisionTree = self.decisionTree.fit(X_train.values, y_train)
+        y_pred = self.decisionTree.predict(X_test.values)
 
-        # self.printDecisionTree()
         print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
 
     def predictLeaf(self, data: LeafDetails):
         predictData = [[data.height, data.width, data.lobulata, data.cuoriforme, data.lanceolata]]
         prediction = self.decisionTree.predict(predictData)
         return prediction[0]
-
-    def printDecisionTree(self):
-        fig = plt.figure(figsize=(25, 20))
-        _ = plot_tree(self.decisionTree,
-                      feature_names=self.featuresCol,
-                      class_names=self.classNames,
-                      filled=True)
-        fig.savefig("decision_tree_2.png")
